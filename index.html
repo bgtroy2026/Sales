@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>YOY Sales Overview — Big Grove Brewery</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f4f5f7;color:#1a1a1a;min-height:100vh}
@@ -44,6 +45,11 @@ header h1{font-size:14px;font-weight:600;color:#111}
 .ss-opt:hover{background:#f5f5f5}
 .ss-opt.selected{background:#f0fdf4;color:#166534;font-weight:600}
 .ss-opt.hidden{display:none}
+/* Charts row — desktop only */
+.charts-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px}
+.chart-card{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:14px 16px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.chart-title{font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
+.chart-card canvas{display:block;width:100%!important}
 .table-card{background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.05)}
 .table-scroll{overflow-x:auto}
 table{width:100%;border-collapse:collapse;font-size:12px}
@@ -87,6 +93,7 @@ em.hl{font-style:normal;background:#fef08a;color:#111;border-radius:2px;padding:
   .controls{padding:8px 10px;gap:7px}
   .seg-btn{padding:4px 9px;font-size:11px}
   .search-wrap{max-width:100%;flex-basis:100%}
+  .charts-row{display:none}
   .table-scroll{display:none}
   .cards-view{display:block!important;padding:8px 8px 0}
   .filter-panel.open{gap:8px 12px}
@@ -152,6 +159,23 @@ em.hl{font-style:normal;background:#fef08a;color:#111;border-radius:2px;padding:
   <button class="pill-btn" onclick="resetFilters()" style="border-color:#ef4444;color:#ef4444">&#10006; Reset</button>
 </div>
 <div class="loc-hint" id="locHint"></div>
+
+<!-- Charts — desktop only (hidden on mobile via CSS) -->
+<div class="charts-row">
+  <div class="chart-card">
+    <div class="chart-title">Top 10 by Volume</div>
+    <div style="height:240px;position:relative"><canvas id="chartTop"></canvas></div>
+  </div>
+  <div class="chart-card">
+    <div class="chart-title">Volume by Distributor</div>
+    <div style="height:240px;position:relative"><canvas id="chartDist"></canvas></div>
+  </div>
+  <div class="chart-card">
+    <div class="chart-title">YOY % — Top Gainers &amp; Decliners</div>
+    <div style="height:240px;position:relative"><canvas id="chartYOY"></canvas></div>
+  </div>
+</div>
+
 <div class="table-card">
   <div class="table-scroll"><table><thead id="tableHead"></thead><tbody id="tableBody"></tbody></table></div>
   <div class="cards-view" id="cardsView"></div>
@@ -172,14 +196,17 @@ const PERIOD_IDX={
   chain:{yr:[5,6],mo:[7,8],wk:[9,10],q:[11,12]},
   acct:{yr:[8,9],mo:[10,11],wk:[12,13],q:[14,15]}
 };
+const GOLD='#92740A', GOLD_LIGHT='rgba(146,116,10,0.18)', GRAY='#d1d5db', GRAY2='rgba(209,213,219,0.5)';
+const UP='#16a34a', UP_LIGHT='rgba(22,163,74,0.15)', DN='#dc2626', DN_LIGHT='rgba(220,38,38,0.15)';
 
 let period='q',view='acct',ooFilter='all';
 let sortKey='curr',sortDir=-1,page=0;
 const PS=30;
-let filtered=[];
+let filtered=[], allRows=[];
 let expandedRows=new Set();
 let userLat=null,userLon=null,locationActive=false;
 const SS_STATE={};
+let chartTop=null, chartDist=null, chartYOY=null;
 
 function ssInit(id,opts,placeholder){
   var wrap=document.getElementById(id);if(!wrap)return;
@@ -374,15 +401,134 @@ function renderHead(){
   document.getElementById('tableHead').innerHTML=h;
 }
 
+// ── Charts ──────────────────────────────────────────────────────────────
+function updateCharts(rows){
+  if(typeof Chart==='undefined')return;
+  var isChain=view==='chain';
+
+  // 1. Top 10 by current CE
+  var top10=[].concat(rows).sort(function(a,b){return b.curr-a.curr;}).slice(0,10).reverse();
+  var topLabels=top10.map(function(r){var n=r.name;return n.length>18?n.slice(0,17)+'…':n;});
+  var topCurr=top10.map(function(r){return r.curr;});
+  var topPrev=top10.map(function(r){return r.prev;});
+
+  if(chartTop){
+    chartTop.data.labels=topLabels;
+    chartTop.data.datasets[0].data=topCurr;
+    chartTop.data.datasets[1].data=topPrev;
+    chartTop.update('none');
+  } else {
+    chartTop=new Chart(document.getElementById('chartTop'),{
+      type:'bar',
+      data:{
+        labels:topLabels,
+        datasets:[
+          {label:'Current',data:topCurr,backgroundColor:GOLD,borderRadius:3,barPercentage:.6},
+          {label:'Prior Year',data:topPrev,backgroundColor:GRAY,borderRadius:3,barPercentage:.6}
+        ]
+      },
+      options:{
+        indexAxis:'y',responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{position:'bottom',labels:{font:{size:10},boxWidth:10,padding:8}},tooltip:{callbacks:{label:function(c){return' '+c.dataset.label+': '+c.parsed.x.toFixed(1)+' CE';}}}},
+        scales:{x:{grid:{color:'#f3f4f6'},ticks:{font:{size:9}}},y:{grid:{display:false},ticks:{font:{size:9}}}}
+      }
+    });
+  }
+
+  // 2. Volume by distributor (all rows, not just top10)
+  var distMap={};
+  rows.forEach(function(r){
+    var dn=DIST_NAMES[r.dist]||'?';
+    if(!distMap[dn])distMap[dn]={curr:0,prev:0};
+    distMap[dn].curr+=r.curr;distMap[dn].prev+=r.prev;
+  });
+  var distArr=Object.keys(distMap).map(function(k){return{name:k,curr:Math.round(distMap[k].curr*10)/10,prev:Math.round(distMap[k].prev*10)/10};})
+    .sort(function(a,b){return b.curr-a.curr;}).slice(0,12);
+  var distLabels=distArr.map(function(r){var n=r.name;return n.length>16?n.slice(0,15)+'…':n;});
+  var distCurr=distArr.map(function(r){return r.curr;});
+  var distPrev=distArr.map(function(r){return r.prev;});
+
+  if(chartDist){
+    chartDist.data.labels=distLabels;
+    chartDist.data.datasets[0].data=distCurr;
+    chartDist.data.datasets[1].data=distPrev;
+    chartDist.update('none');
+  } else {
+    chartDist=new Chart(document.getElementById('chartDist'),{
+      type:'bar',
+      data:{
+        labels:distLabels,
+        datasets:[
+          {label:'Current',data:distCurr,backgroundColor:GOLD,borderRadius:3,barPercentage:.65},
+          {label:'Prior Year',data:distPrev,backgroundColor:GRAY,borderRadius:3,barPercentage:.65}
+        ]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{position:'bottom',labels:{font:{size:10},boxWidth:10,padding:8}},tooltip:{callbacks:{label:function(c){return' '+c.dataset.label+': '+c.parsed.y.toFixed(1)+' CE';}}}},
+        scales:{x:{grid:{display:false},ticks:{font:{size:8},maxRotation:35}},y:{grid:{color:'#f3f4f6'},ticks:{font:{size:9}}}}
+      }
+    });
+  }
+
+  // 3. YOY % — top 10 gainers + top 10 decliners (only rows with prior year data)
+  var withPct=rows.filter(function(r){return r.prev>1&&r.pct!==null;});
+  withPct.sort(function(a,b){return b.pct-a.pct;});
+  var gainers=withPct.slice(0,8);
+  var decliners=withPct.slice(-8).reverse();
+  var yoyRows=gainers.concat(decliners);
+  // dedupe
+  var seen={};yoyRows=yoyRows.filter(function(r){var k=r.name;if(seen[k])return false;seen[k]=1;return true;});
+  var yoyLabels=yoyRows.map(function(r){var n=r.name;return n.length>16?n.slice(0,15)+'…':n;});
+  var yoyPcts=yoyRows.map(function(r){return r.pct;});
+  var yoyColors=yoyPcts.map(function(v){return v>=0?UP:DN;});
+  var yoyBG=yoyPcts.map(function(v){return v>=0?UP_LIGHT:DN_LIGHT;});
+
+  if(chartYOY){
+    chartYOY.data.labels=yoyLabels;
+    chartYOY.data.datasets[0].data=yoyPcts;
+    chartYOY.data.datasets[0].backgroundColor=yoyBG;
+    chartYOY.data.datasets[0].borderColor=yoyColors;
+    chartYOY.update('none');
+  } else {
+    chartYOY=new Chart(document.getElementById('chartYOY'),{
+      type:'bar',
+      data:{
+        labels:yoyLabels,
+        datasets:[{
+          label:'YOY %',data:yoyPcts,
+          backgroundColor:yoyBG,borderColor:yoyColors,borderWidth:1,
+          borderRadius:3,barPercentage:.6
+        }]
+      },
+      options:{
+        indexAxis:'y',responsive:true,maintainAspectRatio:false,
+        plugins:{
+          legend:{display:false},
+          tooltip:{callbacks:{label:function(c){return' '+(c.parsed.x>0?'+':'')+c.parsed.x+'%';}}}
+        },
+        scales:{
+          x:{grid:{color:'#f3f4f6'},ticks:{font:{size:9},callback:function(v){return v+'%';}},
+             afterBuildTicks:function(ax){ax.ticks=ax.ticks;}},
+          y:{grid:{display:false},ticks:{font:{size:9}}}
+        }
+      }
+    });
+  }
+}
+
 function render(){
   var isChain=view==='chain';
-  var all=isChain?buildChainRows():buildAcctRows();
-  filtered=filterRows(all);
+  allRows=isChain?buildChainRows():buildAcctRows();
+  filtered=filterRows(allRows);
   sortRows(filtered);
   document.getElementById('countBadge').textContent=filtered.length.toLocaleString()+' rows';
   var mx=1;for(var i=0;i<filtered.length;i++)if(filtered[i].curr>mx)mx=filtered[i].curr;
   var q=document.getElementById('searchBox').value.trim().toLowerCase();
   var start=page*PS,slice=filtered.slice(start,start+PS);
+
+  // update charts with all filtered rows (not just current page)
+  updateCharts(filtered);
 
   var tbody='';
   for(var ri=0;ri<slice.length;ri++){
@@ -423,7 +569,7 @@ function render(){
     var miStr=a.distMi!==null?' · '+a.distMi+' mi':'';
     return'<div class="acct-card">'
       +'<div class="card-top"><span class="card-name">'+hl(a.name,q)+'</span>'+yoyPill(a.pct)+'<span class="card-ce">'+a.curr.toFixed(1)+'</span></div>'
-      +'<div class="card-meta">'+(isChain?DIST_NAMES[a.dist]:((a.city||'')+', '+a.state+miStr+' · '+DIST_NAMES[a.dist]))+'</div>'
+      +'<div class="card-meta">'+(view==='chain'?DIST_NAMES[a.dist]:((a.city||'')+', '+a.state+miStr+' · '+DIST_NAMES[a.dist]))+'</div>'
       +'<div class="card-dist">Prior: '+a.prev.toFixed(1)+' · Diff: '+(a.diff>0?'+':'')+a.diff.toFixed(1)+'</div>'
       +'</div>';
   }).join('');
@@ -449,6 +595,10 @@ function setPeriod(p,btn){
 }
 function setView(v,btn){
   view=v;
+  // destroy charts so they rebuild with correct labels
+  if(chartTop){chartTop.destroy();chartTop=null;}
+  if(chartDist){chartDist.destroy();chartDist=null;}
+  if(chartYOY){chartYOY.destroy();chartYOY=null;}
   document.querySelectorAll('#viewGroup .seg-btn').forEach(function(b){b.classList.remove('active');});
   btn.classList.add('active');
   expandedRows.clear();page=0;renderHead();render();
