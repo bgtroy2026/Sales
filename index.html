@@ -77,7 +77,7 @@ tr[data-tip]:hover td{background:#eef6f0}
   <div class="card"><h3>States &amp; Premise</h3><div id="chState"></div>
     <div style="display:flex;gap:18px;align-items:center;justify-content:center;margin-top:12px"><div id="chPrem" style="width:140px"></div>
     <div class="legend" style="flex-direction:column;align-items:flex-start;gap:6px;margin-top:0"><span><span class="sw" style="background:#1e5c3a"></span>On-premise</span><span><span class="sw" style="background:#e8a020"></span>Off-premise</span></div></div>
-    <div class="cap">Hover a state bar for its YoY, revenue and account status mix.</div>
+    <div class="cap">Hover a state bar for its YoY, net sales and account status mix.</div>
   </div>
 </div>
 
@@ -111,7 +111,7 @@ tr[data-tip]:hover td{background:#eef6f0}
   <div class="cap">Hover a row for the state-by-state breakdown. 648 chains matched.</div>
 </div>
 
-<div class="cap" style="margin-top:30px">Source: VIP account export, 2026-07-01. CE = case equivalents; Rev = distributor net price.</div>
+<div class="cap" style="margin-top:30px">Source: VIP account export, 2026-07-01. CE = case equivalents; Net Sales = distributor net price.</div>
 </div>
 <div id="tip"></div>
 
@@ -160,7 +160,7 @@ const stArr=[...byState].map(([k,a])=>({name:k,...a})).filter(s=>s.name!=='?').s
 sec(()=>{
 const K=[
  ['H1 Volume',fmt(ce26)+' CE',pct(ce26,ce25),`<div class="tt">H1 2026 volume</div>2026: <b>${fmt(ce26)} CE</b><br>2025: ${fmt(ce25)} CE<br>Δ ${fmt(ce26-ce25)} CE (${pctStr(pct(ce26,ce25))})`],
- ['H1 Revenue',fmt$(r26),pct(r26,r25),`<div class="tt">H1 2026 revenue (net price)</div>2026: <b>${fmt$(r26)}</b><br>2025: ${fmt$(r25)}<br>Δ ${fmt$(r26-r25)} (${pctStr(pct(r26,r25))})`],
+ ['H1 Net Sales',fmt$(r26),pct(r26,r25),`<div class="tt">H1 2026 net sales (net price)</div>2026: <b>${fmt$(r26)}</b><br>2025: ${fmt$(r25)}<br>Δ ${fmt$(r26-r25)} (${pctStr(pct(r26,r25))})`],
  ['Buying Accounts',fmt(buy26),pct(buy26,buy25),`<div class="tt">Accounts that bought in H1</div>2026: <b>${fmt(buy26)}</b> · 2025: ${fmt(buy25)}<br>+${fmt(buy26-buy25)} net`],
  ['New Buyers',fmt(stat.new),null,`<div class="tt">New buyers</div>Bought in H1 ’26 but not H1 ’25.<br>They add <b>${fmt(R.filter(r=>status(r)==='new').reduce((s,r)=>s+r[6],0))} CE</b> of new volume.`],
  ['Lost Buyers',fmt(stat.lost),null,`<div class="tt">Lost buyers</div>Bought in H1 ’25, nothing in ’26.<br>Volume at risk: <b>${fmt(statCE25.lost)} CE</b> (their ’25 H1).<br>Filter Status = Lost below for the win-back list.`],
@@ -176,7 +176,7 @@ const W=560,H=210,P=30,max=Math.max(...mon)*1.12,bw=W/6*.62;
 const MN=['Jan','Feb','Mar','Apr','May','Jun'];
 let s=`<svg viewBox="0 0 ${W} ${H+24}">`;
 mon.forEach((v,i)=>{const x=i*W/6+(W/6-bw)/2,h=v/max*H,y=H-h;
- const t=`<div class="tt">${MN[i]} 2026</div>Volume: <b>${fmt(v)} CE</b><br>Revenue: <b>${fmt$(MREV[i])}</b><br>$/CE: $${(MREV[i]/v).toFixed(2)}<br>Share of H1: ${(v/ce26*100).toFixed(1)}%`;
+ const t=`<div class="tt">${MN[i]} 2026</div>Volume: <b>${fmt(v)} CE</b><br>Net sales: <b>${fmt$(MREV[i])}</b><br>$/CE: $${(MREV[i]/v).toFixed(2)}<br>Share of H1: ${(v/ce26*100).toFixed(1)}%`;
  s+=`<rect x="${x}" y="${y}" width="${bw}" height="${h}" rx="4" fill="#2e8b57" data-tip="${q(t)}"/>
  <text x="${x+bw/2}" y="${y-6}" text-anchor="middle" font-size="11" font-weight="700" fill="#1e5c3a">${fmt(v/1000)}k</text>
  <text x="${x+bw/2}" y="${H+16}" text-anchor="middle" font-size="11" fill="#68746d">${MN[i]}</text>`;});
@@ -229,7 +229,7 @@ function squarify(items,x,y,w,h){
 squarify(items,0,0,W,H);
 let s=`<svg viewBox="0 0 ${W} ${H}">`;
 for(const r of rects){
- const t=`<div class="tt">${r.name}</div>H1 ’26: <b>${fmt(r.ce26)} CE</b> (${(r.ce26/ce26*100).toFixed(1)}% of total)<br>H1 ’25: ${fmt(r.ce25)} CE · YoY <span class="${cc(r.yoy)}">${pctStr(r.yoy)}</span><br>Revenue: ${fmt$(r.r26)}<br>Accounts: ${fmt(r.acct)} · buying: ${fmt(r.buy)}<br>New buyers: ${r.nw} · Lost: ${r.lo}`;
+ const t=`<div class="tt">${r.name}</div>H1 ’26: <b>${fmt(r.ce26)} CE</b> (${(r.ce26/ce26*100).toFixed(1)}% of total)<br>H1 ’25: ${fmt(r.ce25)} CE · YoY <span class="${cc(r.yoy)}">${pctStr(r.yoy)}</span><br>Net sales: ${fmt$(r.r26)}<br>Accounts: ${fmt(r.acct)} · buying: ${fmt(r.buy)}<br>New buyers: ${r.nw} · Lost: ${r.lo}`;
  s+=`<rect x="${r.x+1}" y="${r.y+1}" width="${Math.max(0,r.w-2)}" height="${Math.max(0,r.h-2)}" rx="3" fill="${yoyColor(r.yoy)}" data-tip="${q(t)}"/>`;
  if(r.w>78&&r.h>30){
   const nm=r.name.split(' - ')[0].slice(0,Math.floor(r.w/7.5));
@@ -244,7 +244,7 @@ sec(()=>{
 const top=clsArr.slice(0,10),W=700,rowH=34,LW=170,max=Math.max(...top.map(c=>c.ce26))*1.05;
 let s=`<svg viewBox="0 0 ${W} ${top.length*rowH}">`;
 top.forEach((c,i)=>{const y=i*rowH,bw26=c.ce26/max*(W-LW-70),bw25=c.ce25/max*(W-LW-70),p=pct(c.ce26,c.ce25);
- const t=`<div class="tt">${c.name}</div>H1 ’26: <b>${fmt(c.ce26)} CE</b> (${(c.ce26/ce26*100).toFixed(1)}% of volume)<br>H1 ’25: ${fmt(c.ce25)} CE · YoY <span class="${cc(p)}">${pctStr(p)}</span><br>Revenue: ${fmt$(c.r26)}<br>Accounts: ${fmt(c.acct)} · buying ’26: ${fmt(c.buy)}<br>New: ${c.nw} · Lost: ${c.lo}`;
+ const t=`<div class="tt">${c.name}</div>H1 ’26: <b>${fmt(c.ce26)} CE</b> (${(c.ce26/ce26*100).toFixed(1)}% of volume)<br>H1 ’25: ${fmt(c.ce25)} CE · YoY <span class="${cc(p)}">${pctStr(p)}</span><br>Net sales: ${fmt$(c.r26)}<br>Accounts: ${fmt(c.acct)} · buying ’26: ${fmt(c.buy)}<br>New: ${c.nw} · Lost: ${c.lo}`;
  s+=`<text x="${LW-8}" y="${y+15}" text-anchor="end" font-size="11" fill="#404a44">${c.name.length>24?c.name.slice(0,23)+'…':c.name}</text>
  <rect x="${LW}" y="${y+3}" width="${bw25}" height="9" rx="2" fill="#c9d8cf" data-tip="${q(t)}"/>
  <rect x="${LW}" y="${y+14}" width="${bw26}" height="11" rx="2" fill="#1e5c3a" data-tip="${q(t)}"/>
@@ -273,7 +273,7 @@ function statMix(k){const m=stStat[k];if(!m)return'';
 const W=430,rowH=30,LW=36,max=Math.max(...stArr.map(s=>s.ce26))*1.05;
 let s=`<svg viewBox="0 0 ${W} ${stArr.length*rowH}">`;
 stArr.forEach((st,i)=>{const y=i*rowH,b26=st.ce26/max*(W-LW-64),b25=st.ce25/max*(W-LW-64),p=pct(st.ce26,st.ce25);
- const t=`<div class="tt">${st.name}</div>H1 ’26: <b>${fmt(st.ce26)} CE</b> (${(st.ce26/ce26*100).toFixed(1)}%)<br>H1 ’25: ${fmt(st.ce25)} CE · YoY <span class="${cc(p)}">${pctStr(p)}</span><br>Revenue: ${fmt$(st.r26)}${premMix(st.name)}${statMix(st.name)}`;
+ const t=`<div class="tt">${st.name}</div>H1 ’26: <b>${fmt(st.ce26)} CE</b> (${(st.ce26/ce26*100).toFixed(1)}%)<br>H1 ’25: ${fmt(st.ce25)} CE · YoY <span class="${cc(p)}">${pctStr(p)}</span><br>Net sales: ${fmt$(st.r26)}${premMix(st.name)}${statMix(st.name)}`;
  s+=`<text x="${LW-6}" y="${y+15}" text-anchor="end" font-size="11" font-weight="700" fill="#404a44">${st.name}</text>
  <rect x="${LW}" y="${y+2}" width="${b25}" height="8" rx="2" fill="#c9d8cf" data-tip="${q(t)}"/>
  <rect x="${LW}" y="${y+12}" width="${b26}" height="10" rx="2" fill="#1e5c3a" data-tip="${q(t)}"/>
@@ -387,7 +387,7 @@ DIST.forEach((d,i)=>selDist.add(new Option(d,i)));
 stArr.forEach(s=>selState.add(new Option(s.name,s.name)));
 clsArr.forEach(c=>selClass.add(new Option(c.name,c.ci)));
 let page=0,aSort={k:6,dir:-1};const PER=25;
-const aCols=[[3,'Account',0],[0,'Distributor',0],[2,'Channel',0],['status','Status',0],[6,'CE ’26',1],[8,'CE ’25',1],['yoy','YoY',1],[7,'Rev ’26',1]];
+const aCols=[[3,'Account',0],[0,'Distributor',0],[2,'Channel',0],['status','Status',0],[6,'CE ’26',1],[8,'CE ’25',1],['yoy','YoY',1],[7,'Net Sales ’26',1]];
 function spark(r){const m=r.slice(12,18),mx=Math.max(...m,0.1);
  let p='';m.forEach((v,i)=>{p+=`${8+i*20},${34-v/mx*26} `;});
  let dots='';m.forEach((v,i)=>{dots+=`<circle cx="${8+i*20}" cy="${34-v/mx*26}" r="2" fill="#7fd8a4"/>`;});
